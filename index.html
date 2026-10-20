@@ -11,14 +11,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="가계부 노트">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#FFF5F8">
+<meta name="theme-color" content="#F6F2E8">
 <style>
-  html,body{margin:0;height:100%;background:#FFF5F8}
+  html,body{margin:0;height:100%;background:#F6F2E8}
   iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}
-  .wait{position:fixed;inset:0;display:grid;place-items:center;text-align:center;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#4B3443;padding:24px}
-  .wait img{width:96px;height:96px;border-radius:24px;box-shadow:0 8px 24px rgba(240,110,150,.25)}
+  .wait{position:fixed;inset:0;display:grid;place-items:center;text-align:center;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#2E3A33;padding:24px}
+  .wait img{width:96px;height:96px;border-radius:24px;box-shadow:0 8px 24px rgba(50,90,70,.25)}
   .wait p{margin:16px 0 0;font-size:15px}
-  .wait a{display:inline-block;margin-top:18px;padding:12px 20px;border-radius:999px;background:#FF7EA8;color:#fff;text-decoration:none;font-weight:700}
+  .wait a{display:inline-block;margin-top:18px;padding:12px 20px;border-radius:999px;background:#4F8F6E;color:#fff;text-decoration:none;font-weight:700}
   .wait a[hidden]{display:none}
 </style>
 </head>
@@ -30,10 +30,14 @@
     <a id="open" hidden>여기를 눌러 열기</a>
   </div>
 </div>
+<script src="config.js"></script>
 <script>
-  /* ▼▼ 여기에 웹앱 주소(/exec 로 끝나는 주소)를 넣어 주세요 ▼▼ */
-  var APP_URL = 'https://script.google.com/macros/s/AKfycbzZ0E54mKVGm5Czmn7NhSrooZx37j1KS-uKi3p6mkyYAVD516QUdSACFg3WUSP6jQM8/exec';
-  /* ▲▲ ------------------------------------------------ ▲▲ */
+  /* 웹앱 주소는 config.js 에 따로 있어요. 이 파일은 고치지 않고 그대로 올리면 됩니다. */
+  var APP_URL = window.APP_URL || '';
+  if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(APP_URL)) {
+    document.getElementById('wait').innerHTML = '<div><p>config.js 파일에 웹앱 주소가 아직 없어요.</p></div>';
+    throw new Error('APP_URL 없음');
+  }
 
   var open = document.getElementById('open');
   open.href = APP_URL;
@@ -44,6 +48,23 @@
   f.onload = function(){ document.getElementById('wait').style.display = 'none'; };
   document.body.appendChild(f);
   setTimeout(function(){ open.hidden = false; }, 6000);
+  /* 자동 로그인: 가계부 앱이 보낸 로그인 정보를 이 페이지(내 휴대폰)에 보관했다가 다음에 열 때 돌려줌 */
+  var KEY = 'ledger-login';
+  function saved(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } }
+  window.addEventListener('message', function(e){
+    if (!/\.googleusercontent\.com$/.test(e.origin)) return;
+    var m = e.data || {};
+    if (m.t === 'ledger-ready') {
+      var s = saved();
+      e.source.postMessage({ t: 'ledger-hello', token: s.token || '', me: s.me, names: s.names || null }, e.origin);
+    } else if (m.t === 'ledger-save') {
+      var s2 = saved();
+      if (m.token) s2.token = m.token; else delete s2.token;
+      if (m.me != null) s2.me = m.me;
+      if (m.names) s2.names = m.names;
+      try { localStorage.setItem(KEY, JSON.stringify(s2)); } catch(err){}
+    }
+  });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 </script>
 </body>
