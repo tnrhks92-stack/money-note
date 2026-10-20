@@ -33,8 +33,11 @@
 <script src="config.js"></script>
 <script>
   /* 웹앱 주소는 config.js 에 따로 있어요. 이 파일은 고치지 않고 그대로 올리면 됩니다. */
-  var APP_URL = window.APP_URL || '';
-  if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(APP_URL)) {
+  var APP_URL = String(window.APP_URL || '').trim();
+  /* 주소가 겹치거나, 배포 ID만 넣거나, 끝에 /exec 가 없어도 알아서 바로잡음 */
+  var ids = APP_URL.match(/AKfy[A-Za-z0-9_-]{20,}/g) || APP_URL.match(/[A-Za-z0-9_-]{40,}/g);
+  if (ids) APP_URL = 'https:\/\/script.google.com/macros/s/' + ids[ids.length - 1] + '/exec';
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL)) {
     document.getElementById('wait').innerHTML = '<div><p>config.js 파일에 웹앱 주소가 아직 없어요.</p></div>';
     throw new Error('APP_URL 없음');
   }
