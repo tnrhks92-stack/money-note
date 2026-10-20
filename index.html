@@ -20,9 +20,12 @@
   .wait p{margin:16px 0 0;font-size:15px}
   .wait a{display:inline-block;margin-top:18px;padding:12px 20px;border-radius:999px;background:#4F8F6E;color:#fff;text-decoration:none;font-weight:700}
   .wait a[hidden]{display:none}
+  .btoast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9;background:#2E3A33;color:#fff;padding:10px 18px;border-radius:99px;font:14px system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;white-space:nowrap}
+  .btoast[hidden]{display:none}
 </style>
 </head>
 <body>
+<div class="btoast" id="btoast" hidden>뒤로 버튼을 한 번 더 누르면 앱이 닫혀요</div>
 <div class="wait" id="wait">
   <div>
     <img src="icon-192.png" alt="">
@@ -54,10 +57,24 @@
   /* 자동 로그인: 가계부 앱이 보낸 로그인 정보를 이 페이지(내 휴대폰)에 보관했다가 다음에 열 때 돌려줌 */
   var KEY = 'ledger-login';
   function saved(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } }
+  /* 휴대폰 뒤로가기: 바로 꺼지지 않고 앱 안에서 이전 화면으로 */
+  var APP = null, armed = false, waitT = null, toastT = null;
+  function arm(){ if (!armed) { history.pushState({ ledger: 1 }, ''); armed = true; } }
+  function exitHint(){ var t = document.getElementById('btoast'); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function(){ t.hidden = true; arm(); }, 2000); }
+  window.addEventListener('popstate', function(){
+    armed = false;
+    if (!APP) { exitHint(); return; }
+    try { APP.win.postMessage({ t: 'ledger-back' }, APP.origin); } catch(err) { exitHint(); return; }
+    clearTimeout(waitT); waitT = setTimeout(exitHint, 600);   // 앱이 대답하지 않으면 종료 안내
+  });
+  arm();
   window.addEventListener('message', function(e){
     if (!/\.googleusercontent\.com$/.test(e.origin)) return;
     var m = e.data || {};
+    if (m.t === 'ledger-back-result') { clearTimeout(waitT); if (m.handled) { document.getElementById('btoast').hidden = true; arm(); } else exitHint(); return; }
+    if (m.t === 'ledger-nav') { arm(); return; }
     if (m.t === 'ledger-ready') {
+      APP = { win: e.source, origin: e.origin };
       var s = saved();
       e.source.postMessage({ t: 'ledger-hello', token: s.token || '', me: s.me, names: s.names || null }, e.origin);
     } else if (m.t === 'ledger-save') {
